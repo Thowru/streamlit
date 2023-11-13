@@ -49,7 +49,7 @@ def main():
 from sklearn.ensemble import IsolationForest  # 이상탐지 모델 예시 (다른 모델로 대체 가능)
 
 # 전처리된 데이터 로드
-processed_file_path = 'processed_file.csv'
+processed_file_path = 'train_processed.csv'
 processed_log_df = pd.read_csv(processed_file_path)
 
 # 이상탐지 모델 학습
