@@ -19,6 +19,20 @@ if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
 
     # Feature Engineering 및 전처리 (예: 사용할 feature를 선택하고, 필요한 전처리 수행)
+    df['method_cnt'] = 0.0
+    df['method_post'] = 0.0
+    df['protocol_1_0'] = False
+    df['status_major'] = 0.0
+    df['status_404'] = 0.0
+    df['status_499'] = False
+    df['status_cnt'] = 0.0
+    df['path_same'] = 0.0
+    df['path_xmlrpc'] = True
+    df['ua_cnt'] = 0.0
+    df['has_payload'] = False
+    df['bytes_avg'] = 0.0
+    df['bytes_std'] = 0.0
+
     chosen_data = df[['method_cnt', 'method_post', 'protocol_1_0', 'status_major', 'status_404', 'status_499',
                       'status_cnt', 'path_same', 'path_xmlrpc', 'ua_cnt', 'has_payload', 'bytes_avg', 'bytes_std']]
 
