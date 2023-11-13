@@ -50,8 +50,9 @@ def feature_extract(df):
         df.loc[entity, 'method_cnt'] = method_cnt
 
         # 사용한 Method중 Post의 비율
-        method_post_percent = len(group[group['Method']=='POST']) / float(len(group))
+        method_post_percent = len(group[group['Method']=='POST']) / float(len(group)) if len(group) > 0 else 0
         df.loc[entity, 'method_post'] = method_post_percent
+
 
         # Protocol 1.0 사용여부
         use_1_0 = True if len(group[group['Protocol']=='HTTP/1.0']) > 0 else False
