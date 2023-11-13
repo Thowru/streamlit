@@ -133,4 +133,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-이 코드를 합하여 streamlit 코드 처음부터 끝까지 생략하지말고 보여줘
