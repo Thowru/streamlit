@@ -21,8 +21,6 @@ def process_log_data(log_df):
     log_df = log_df[['Timestamp','Method','Protocol','Status','Referer','Path','Host','UA','Payload','Bytes']]
     return log_df
 
-# Feature Engineering Refactoring
-# 일괄 처리를 위한 함수화
 def feature_extract(df):
     df['method_cnt'] = 0.0
     df['method_post'] = 0.0
@@ -74,7 +72,7 @@ def feature_extract(df):
         df.loc[entity, 'status_cnt'] = status_cnt
 
         # 같은 Path 반복적 접근 여부
-        top1_path_cnt = group['Path'].value_counts()[0]
+        top1_path_cnt = group['Path'].value_counts().iloc[0] if len(group['Path'].value_counts()) > 0 else 0
         df.loc[entity, 'path_same'] = float(top1_path_cnt / len(group)) if len(group) > 0 else 0
 
         # /xmlrpc.php 접근 비율
