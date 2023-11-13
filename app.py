@@ -50,8 +50,8 @@ df_entity = pd.read_csv("train_processed.csv", index_col='entity')
 cols_to_train = ['method_cnt','method_post','protocol_1_0','status_major','status_404','status_499','status_cnt','path_same','path_xmlrpc','ua_cnt','has_payload','bytes_avg','bytes_std']
 
 # 모델링
-model = load('model.pkl')
-model2 = load('model2.pkl') 
+model = load('anomaly_entities_kmeans.pkl')
+model2 = load('anomaly_entities_dbscan.pkl') 
 
 
 # 대시보드 애플리케이션 초기화
