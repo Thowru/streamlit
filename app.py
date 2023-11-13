@@ -24,9 +24,6 @@ def process_log_data(log_df):
 
 # Feature Engineering Refactoring
 def feature_extract(df):
-   # Feature Engineering Refactoring
-# 일괄 처리를 위한 함수화
-def feature_extract(df):
     df['method_cnt'] = 0.0
     df['method_post'] = 0.0
     df['protocol_1_0'] = False
@@ -101,7 +98,6 @@ def feature_extract(df):
 
         cnt = cnt + 1
     return df
-
 
 # Streamlit 앱
 def main():
