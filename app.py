@@ -35,7 +35,10 @@ def feature_extract(df):
     df['status_404'] = df['Status'].apply(lambda x: 1 if x == '404' else 0)
     df['status_499'] = df['Status'].apply(lambda x: True if x == '499' else False)
     df['status_cnt'] = df['Status'].nunique()
-    df['path_same'] = df.groupby('Host')['Path'].transform(lambda x: x.value_counts().iloc[0] / len(x))
+
+    # 수정된 부분: 그룹 크기가 0인 경우 0으로 설정
+    df['path_same'] = df.groupby('Host')['Path'].transform(lambda x: x.value_counts().iloc[0] / len(x) if len(x) > 0 else 0)
+
     df['path_xmlrpc'] = df['Path'].apply(lambda x: 1 if 'xmlrpc.php' in x else 0)
     df['ua_cnt'] = df.groupby('Host')['UA'].transform('nunique')
     df['has_payload'] = df['Payload'].apply(lambda x: True if x != '-' else False)
