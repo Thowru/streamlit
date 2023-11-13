@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-#로그 데이터를 처리하는 함수
 def process_log_data(log_df):
     log_df.drop(columns='timestamp', inplace=True)
     log_df['Timestamp'] = log_df['message'].str.extract(r'(\d+/\w+/\d+\d+:\d+:\d+:\d+)')
@@ -20,7 +19,6 @@ def process_log_data(log_df):
     log_df = log_df[['Timestamp','Method','Protocol','Status','Referer','Path','Host','UA','Payload','Bytes']]
     return log_df
 
-#Streamlit 앱
 def main():
     st.title('로그 데이터 처리 앱')
 
