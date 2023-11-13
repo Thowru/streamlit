@@ -5,7 +5,6 @@ from sklearn.cluster import DBSCAN
 from sklearn import preprocessing
 import pickle
 from sklearn.decomposition import PCA
-import seaborn as sns
 import matplotlib.pyplot as plt
 
 # 스트림릿 제목 설정
@@ -45,7 +44,7 @@ if uploaded_file is not None:
         cluster_model = pickle.load(f)
 
     # 클러스터 할당
-    df['cluster'] = cluster_model.predict(chosen_data)
+    df['cluster'] = cluster_model.fit_predict(chosen_data)
 
     # 이상 탐지 결과 표시
     st.write("Anomaly Detection Result:")
@@ -65,17 +64,15 @@ if uploaded_file is not None:
 
     # 2D PCA 결과를 시각화
     plt.figure(figsize=(10, 6))
-    sns.scatterplot(
-        x="tsne-2d-one", y="tsne-2d-two",
-        data=df,
-        hue="cluster",
-        palette=sns.color_palette("tab10", 5),
-        legend="full",
-        alpha=1,
+    plt.scatter(
+        x=df['tsne-2d-one'], y=df['tsne-2d-two'],
+        c=df['cluster'],
+        cmap=plt.cm.get_cmap('tab10', 5),
+        alpha=0.8,
         s=50
     )
 
-    plt.scatter(x="tsne-2d-one", y="tsne-2d-two", data=tsne_cluster, s=10, c='b')
+    plt.scatter(x=tsne_cluster['tsne-2d-one'], y=tsne_cluster['tsne-2d-two'], s=10, c='b')
 
     plt.xlabel("PCA 1")
     plt.ylabel("PCA 2")
