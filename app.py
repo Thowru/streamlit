@@ -10,124 +10,91 @@ from sklearn.decomposition import PCA
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Entity 정의
-pat = re.compile(r"(\d+)[.](\d+)[.](\d+)[.](\d+)")
-df_train = df_orig[df_orig['Host'].str.match(pat)==True]
-df_entity = pd.DataFrame({"entity":list(df_train['Host'].unique())})
-df_entity = df_entity.set_index('entity')
+# 로그 데이터 처리 함수
+def process_log_data(log_df):
+    log_df.drop(columns='timestamp', inplace=True)
+    log_df['Timestamp'] = log_df['message'].str.extract(r'(\d+/\w+/\d+\d+:\d+:\d+:\d+)')
+    log_df['Timestamp'] = pd.to_datetime(log_df['Timestamp'], format='%d/%b/%Y:%H:%M:%S').dt.strftime('%Y-%m-%d %H:%M:%S')
+    log_df['Host'] = log_df['message'].str.extract(r'(\d+.\d+.\d+.\d+)')
+    log_df[['Method', 'Path']] = log_df['message'].str.extract(r'(HEAD|PUT|DELETE|CONNECT|OPTIONS|TRACE|PATCH|POST|GET)\s+(.?)\s+HTTP')
+    log_df['Protocol'] = log_df['message'].str.extract(r'(HTTP/\d+.\d+)')
+    log_df['Status'] = log_df['message'].str.extract(r'(\d+)\s+\d+')
+    log_df['Bytes'] = log_df['message'].str.extract(r'\d+\s+(\d+)')
+    log_df['UA'] = log_df['message'].str.extract(r'(Mozilla.+537.36)')
+    selected_log_df = log_df[log_df['Method'].isna() & log_df['Protocol'].isna()]
+    log_df['Payload'] = selected_log_df['message'].str.extract(r']{1}\s+"(.)" \d+')
+    log_df['Referer'] = log_df['message'].str.extract(r'."(http[s]?://.?)"')
+    log_df.drop(columns='message', inplace=True)
+    log_df = log_df[['Timestamp','Method','Protocol','Status','Referer','Path','Host','UA','Payload','Bytes']]
+    return log_df
 
-# Feature Engineering 함수 정의
+# 특성 추출 함수
 def feature_extract(df):
-    df['method_cnt'] = 0.0
-    df['method_post'] = 0.0
-    df['protocol_1_0'] = False
-    df['status_major'] = 0.0
-    df['status_404'] = 0.0
-    df['status_499'] = False
-    df['status_cnt'] = 0.0
-    df['path_same'] = 0.0
-    df['path_xmlrpc'] = True
-    df['ua_cnt'] = 0.0
-    df['has_payload'] = False
-    df['bytes_avg'] = 0.0
-    df['bytes_std'] = 0.0
-    cnt = 0
+    df['method_cnt'] = df['Method'].nunique()
+    df['method_post'] = df['Method'].apply(lambda x: 1 if x == 'POST' else 0)
+    df['protocol_1_0'] = df['Protocol'].apply(lambda x: True if pd.notna(x) and 'HTTP/1.0' in x else False)
+    df['status_major'] = df['Status'].apply(lambda x: 1 if x in ['200', '301', '302'] else 0)
+    df['status_404'] = df['Status'].apply(lambda x: 1 if x == '404' else 0)
+    df['status_499'] = df['Status'].apply(lambda x: True if x == '499' else False)
+    df['status_cnt'] = df['Status'].nunique()
 
-    for entity in df.index.values:
-        if cnt % 500 == 0:
-            print(cnt)
+    # 수정된 부분: 그룹 크기가 0이거나 NaN인 경우 0으로 설정
+    df['path_same'] = df.groupby('Host')['Path'].transform(lambda x: x.value_counts().iloc[0] / len(x) if len(x) > 0 else 0)
 
-        group = df_train[df_train['Host']==entity]
+    df['path_xmlrpc'] = df['Path'].apply(lambda x: 1 if 'xmlrpc.php' in x else 0)
+    df['ua_cnt'] = df.groupby('Host')['UA'].transform('nunique')
+    df['has_payload'] = df['Payload'].apply(lambda x: True if x != '-' else False)
+    df['bytes_avg'] = df.groupby('Host')['Bytes'].transform('mean')
+    df['bytes_std'] = df.groupby('Host')['Bytes'].transform('std')
+    return df
+# 이상 탐지 함수
+def anomaly_detection(df):
+    # Feature Engineering 및 전처리 (이상 탐지 모델에 사용될 특성 선택 및 스케일링)
+    chosen_data = df[['method_cnt', 'method_post', 'protocol_1_0', 'status_major', 'status_404', 'status_499',
+                      'status_cnt', 'path_same', 'path_xmlrpc', 'ua_cnt', 'has_payload', 'bytes_avg', 'bytes_std']]
 
-        method_cnt = group['Method'].nunique()
-        df.loc[entity, 'method_cnt'] = method_cnt
+    min_max_scaler = preprocessing.MinMaxScaler()
+    np_scaled = min_max_scaler.fit_transform(chosen_data)
+    chosen_data = pd.DataFrame(np_scaled, columns=chosen_data.columns)
 
-        method_post_percent = len(group[group['Method']=='POST']) / float(len(group))
-        df.loc[entity, 'method_post'] = method_post_percent
+    # 클러스터링 모델 불러오기
+    with open('anomaly_entities_kmeans.pkl', 'rb') as f:
+        cluster_model = pickle.load(f)
 
-        use_1_0 = True if len(group[group['Protocol']=='HTTP/1.0']) > 0 else False
-        df.loc[entity, 'protocol_1_0'] = use_1_0
+    # 클러스터 할당
+    df['cluster'] = cluster_model.predict(chosen_data)
 
-        status_major_percent = len(group[group['Status'].isin(['200', '301', '302'])]) / float(len(group))
-        df.loc[entity, 'status_major'] = status_major_percent
-
-        status_404_percent = len(group[group['Status'].isin(['404'])]) / float(len(group))
-        df.loc[entity, 'status_404'] = status_404_percent
-
-        has_499 = True if len(group[group['Status']=='499']) > 0 else False
-        df.loc[entity, 'status_499'] = has_499
-
-        status_cnt = group['Status'].nunique()
-        df.loc[entity, 'status_cnt'] = status_cnt
-
-        top1_path_cnt = group['Path'].value_counts()[0]
-        df.loc[entity, 'path_same'] = float(top1_path_cnt / len(group))
-
-        path_xmlrpc = len(group[group['Path'].str.contains('xmlrpc.php')==True]) / float(len(group))
-        df.loc[entity, 'path_xmlrpc'] = path_xmlrpc
-
-        df.loc[entity, 'ua_cnt'] = group['UA'].nunique()
-
-        has_payload = []
-        if len(group[group['Payload'] != '-']) > 0:
-            has_payload.append(True)
-        else:
-            has_payload.append(False)
-        df.loc[entity, 'has_payload'] = has_payload
-
-        df.loc[entity, 'bytes_avg'] = np.mean(group['Bytes'])
-        df.loc[entity, 'bytes_std'] = np.std(group['Bytes'])
-
-        cnt = cnt + 1
     return df
 
-# Feature 추출한 결과를 스토리지에 저장
-df_entity = feature_extract(df_entity)
-df_entity.to_csv(colab_path + "/data_with_feature_csv/train_processed.csv")
+# 이상 탐지 결과 시각화 함수
+def visualize_anomaly(df):
+    tsne = PCA(n_components=2)
+    tsne_results = tsne.fit_transform(chosen_data)
 
-# 저장한 데이터 파일 로드
-df_entity = pd.read_csv(colab_path + "/data_with_feature_csv/train_processed.csv", index_col='entity')
+    df['tsne-2d-one'] = tsne_results[:, 0]
+    df['tsne-2d-two'] = tsne_results[:, 1]
 
-# 결측치 처리
-df_entity.fillna(0, inplace=True)
+    tsne_cluster = df.groupby('cluster').agg({'tsne-2d-one': 'mean', 'tsne-2d-two': 'mean'}).reset_index()
 
-# 이상값 처리 - BoxPlot
-plt.figure(figsize=(15,15))
-cols = ['method_cnt','method_post','status_major','status_404','status_cnt','path_same','ua_cnt','bytes_avg','bytes_std']
-for i in range(len(cols)):
-    plt.subplot(3, 3, i+1)
-    plt.boxplot([df_entity[cols[i]]])
-    plt.xticks([1],[cols[i]])
+    # 2D PCA 결과를 시각화
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(
+        x="tsne-2d-one", y="tsne-2d-two",
+        data=df,
+        hue="cluster",
+        palette=sns.color_palette("tab10", 5),
+        legend="full",
+        alpha=1,
+        s=50
+    )
 
-# 데이터 정규화
-columns_to_scale = ['method_cnt', 'status_cnt', 'ua_cnt', 'bytes_avg', 'bytes_std']
-scaler = preprocessing.MinMaxScaler()
-scaler = scaler.fit(df_entity[columns_to_scale])
-df_entity[columns_to_scale] = scaler.transform(df_entity[columns_to_scale])
+    plt.scatter(x="tsne-2d-one", y="tsne-2d-two", data=tsne_cluster, s=10, c='b')
 
-# 2D, 3D 산포도 분석
-df_entity.plot.scatter(x='method_post', y='status_404', alpha=0.5)
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(df_entity['method_post'], df_entity['status_404'], df_entity['ua_cnt'])
-ax.set_xlabel('method_post')
-ax.set_ylabel('status_404')
-ax.set_zlabel('ua_cnt')
-
-# 모델링 - K-means
-cols_to_train = ['method_cnt','method_post','protocol_1_0','status_major','status_404','status_499','status_cnt','path_same','path_xmlrpc','ua_cnt','has_payload','bytes_avg','bytes_std']
-model_kmeans = KMeans(n_clusters=2, random_state=42)
-model_kmeans.fit(df_entity[cols_to_train])
-
-# Predict를 통해 클러스터 할당
-df_entity['cluster_kmeans'] = model_kmeans.predict(df_entity[cols_to_train])
-
-# Outlier 클러스터에 속한 데이터 포인트 수 확인
-df_entity['cluster_kmeans'].value_counts()
-
-# 모델을 파일로 저장
-with open(colab_path + "/anomaly_entities_kmeans.pkl", 'wb') as f:
-    pickle.dump(model_kmeans, f)
+    plt.xlabel("PCA 1")
+    plt.ylabel("PCA 2")
+    plt.title("Anomaly Detection Visualization")
+    plt.colorbar(label='Cluster')
+    st.pyplot()
 
 # Streamlit 앱
 def main():
@@ -166,3 +133,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+이 코드를 합하여 streamlit 코드 처음부터 끝까지 생략하지말고 보여줘
