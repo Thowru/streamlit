@@ -46,5 +46,50 @@ def main():
         # 처리된 파일을 다운로드할 수 있는 링크 제공
         st.markdown(f"처리된 데이터 다운로드: [처리된 파일]({processed_file_path})")
 
+df_entity = pd.read_csv("train_processed.csv", index_col='entity')
+cols_to_train = ['method_cnt','method_post','protocol_1_0','status_major','status_404','status_499','status_cnt','path_same','path_xmlrpc','ua_cnt','has_payload','bytes_avg','bytes_std']
+
+# 모델링
+model = load('model.pkl')
+model2 = load('model2.pkl') 
+
+
+# 대시보드 애플리케이션 초기화
+dash_app = Dash(__name__, server=app3, url_base_pathname='/dash/')
+
+# Matplotlib 그래프 생성 함수
+def generate_pca():
+    fig = plt.figure()
+    plt.scatter(df_entity['pca_1'], df_entity['pca_2'], c=df_entity['cluster_kmeans'], cmap='viridis', s=60)
+    plt.xlabel("PCA 1")
+    plt.ylabel("PCA 2")
+    # plt.title("Visualization of abnormally detected entities using full features")
+    plt.colorbar()
+    # plt.colorbar(label='클러스터')
+
+    return fig
+
+
+
+# Matplotlib 그래프 생성
+pca_fig = generate_pca()
+
+# Matplotlib 그래프를 Plotly 그래프로 변환
+canvas = FigureCanvas(pca_fig)
+png_output = BytesIO()
+canvas.print_png(png_output)
+
+
+
+# BytesIO를 base64로 인코딩
+data_uri = "data:image/png;base64," + base64.b64encode(png_output.getvalue()).decode()
+
+
+dash_app.layout = html.Div([
+    html.H2(children='Visualization of abnormally detected entities using full features'),
+    html.Img(src=data_uri, style={'margin': '0 auto'})
+])
+
+
 if __name__ == '__main__':
     main()
