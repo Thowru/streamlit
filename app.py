@@ -1,14 +1,16 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from sklearn.cluster import KMeans
+import streamlit as st
+import pandas as pd
+from sklearn.cluster import DBSCAN
 from sklearn import preprocessing
 import pickle
 from sklearn.decomposition import PCA
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-
+# 로그 데이터 처리 함수
 def process_log_data(log_df):
     log_df.drop(columns='timestamp', inplace=True)
     log_df['Timestamp'] = log_df['message'].str.extract(r'(\d+/\w+/\d+\d+:\d+:\d+:\d+)')
@@ -45,15 +47,12 @@ def feature_extract(df):
     df['bytes_avg'] = df.groupby('Host')['Bytes'].transform('mean')
     df['bytes_std'] = df.groupby('Host')['Bytes'].transform('std')
     return df
-
-
 # 이상 탐지 함수
 def anomaly_detection(df):
-    # 선택할 특성
+    # Feature Engineering 및 전처리 (이상 탐지 모델에 사용될 특성 선택 및 스케일링)
     chosen_data = df[['method_cnt', 'method_post', 'protocol_1_0', 'status_major', 'status_404', 'status_499',
                       'status_cnt', 'path_same', 'path_xmlrpc', 'ua_cnt', 'has_payload', 'bytes_avg', 'bytes_std']]
 
-    # Min-Max 스케일링
     min_max_scaler = preprocessing.MinMaxScaler()
     np_scaled = min_max_scaler.fit_transform(chosen_data)
     chosen_data = pd.DataFrame(np_scaled, columns=chosen_data.columns)
@@ -67,7 +66,7 @@ def anomaly_detection(df):
 
     return df
 
-# 시각화 함수
+# 이상 탐지 결과 시각화 함수
 def visualize_anomaly(df):
     tsne = PCA(n_components=2)
     tsne_results = tsne.fit_transform(chosen_data)
@@ -99,7 +98,7 @@ def visualize_anomaly(df):
 
 # Streamlit 앱
 def main():
-    st.title('로그 데이터 처리 및 이상 탐지 앱')
+    st.title('로그 데이터 처리, 이상 탐지 및 시각화 앱')
 
     # 파일 업로드
     uploaded_file = st.file_uploader("CSV 파일 선택", type="csv")
@@ -121,7 +120,8 @@ def main():
         st.write("처리된 로그 데이터:")
         st.write(anomaly_df)
 
-        # 시각화
+        # 이상 탐지 결과 시각화
+        st.write("이상 탐지 결과 시각화:")
         visualize_anomaly(anomaly_df)
 
         # 처리된 데이터를 새로운 CSV 파일로 저장
@@ -130,7 +130,6 @@ def main():
 
         # 처리된 파일을 다운로드할 수 있는 링크 제공
         st.markdown(f"처리된 데이터 다운로드: [처리된 파일]({processed_file_path})")
-
 
 if __name__ == '__main__':
     main()
