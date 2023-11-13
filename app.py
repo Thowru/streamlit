@@ -43,7 +43,7 @@ def feature_extract(df):
         if cnt % 500 == 0:  #진행과정 파악을 위한 로그
             print(cnt)
 
-        group = df_train[df_train['Host']==entity]
+        group = df[df['Host']==entity]
 
         # 사용한 Method의 수
         method_cnt = group['Method'].nunique()
