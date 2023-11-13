@@ -44,5 +44,5 @@ def main():
         st.markdown(f"처리된 데이터 다운로드: [처리된 파일]({processed_file_path})")
 
 
-if name == 'main':
+if __name__ == '__main__':
     main()
