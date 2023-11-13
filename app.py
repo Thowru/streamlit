@@ -30,7 +30,7 @@ def process_log_data(log_df):
 def feature_extract(df):
     df['method_cnt'] = df['Method'].nunique()
     df['method_post'] = df['Method'].apply(lambda x: 1 if x == 'POST' else 0)
-    df['protocol_1_0'] = df['Protocol'].apply(lambda x: True if 'HTTP/1.0' in x else False)
+    df['protocol_1_0'] = df['Protocol'].apply(lambda x: True if pd.notna(x) and 'HTTP/1.0' in x else False)
     df['status_major'] = df['Status'].apply(lambda x: 1 if x in ['200', '301', '302'] else 0)
     df['status_404'] = df['Status'].apply(lambda x: 1 if x == '404' else 0)
     df['status_499'] = df['Status'].apply(lambda x: True if x == '499' else False)
@@ -42,6 +42,7 @@ def feature_extract(df):
     df['bytes_avg'] = df.groupby('Host')['Bytes'].transform('mean')
     df['bytes_std'] = df.groupby('Host')['Bytes'].transform('std')
     return df
+
 
 # 이상 탐지 함수
 def anomaly_detection(df):
