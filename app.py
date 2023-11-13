@@ -47,6 +47,13 @@ def main():
         st.markdown(f"처리된 데이터 다운로드: [처리된 파일]({processed_file_path})")
 
 from sklearn.ensemble import IsolationForest  # 이상탐지 모델 예시 (다른 모델로 대체 가능)
+from sklearn.model_selection import train_test_split
+from sklearn import linear_model, tree, neighbors
+from sklearn import preprocessing
+from sklearn.cluster import KMeans
+from sklearn.cluster import DBSCAN
+from sklearn.decomposition import PCA
+from joblib import dump, load
 
 # 전처리된 데이터 로드
 processed_file_path = 'train_processed.csv'
