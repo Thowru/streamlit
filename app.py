@@ -2,7 +2,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import IsolationForest
 
 # 로그 데이터를 처리하는 함수
 def process_log_data(log_df):
@@ -23,6 +22,7 @@ def process_log_data(log_df):
     return log_df
 
 # Feature Engineering Refactoring
+# 일괄 처리를 위한 함수화
 def feature_extract(df):
     df['method_cnt'] = 0.0
     df['method_post'] = 0.0
@@ -40,34 +40,33 @@ def feature_extract(df):
     cnt = 0
 
     for entity in df.index.values:
-        if cnt % 500 == 0:  #진행과정 파악을 위한 로그
+        if cnt % 500 == 0:  # 진행과정 파악을 위한 로그
             print(cnt)
 
-        group = df[df['Host']==entity]
+        group = df[df['Host'] == entity]  # 이 부분에서 df_train 대신 df를 사용
 
         # 사용한 Method의 수
         method_cnt = group['Method'].nunique()
         df.loc[entity, 'method_cnt'] = method_cnt
 
-        # 사용한 Method중 Post의 비율
-        method_post_percent = len(group[group['Method']=='POST']) / float(len(group)) if len(group) > 0 else 0
+        # 사용한 Method 중 Post의 비율
+        method_post_percent = len(group[group['Method'] == 'POST']) / float(len(group)) if len(group) > 0 else 0
         df.loc[entity, 'method_post'] = method_post_percent
 
-
-        # Protocol 1.0 사용여부
-        use_1_0 = True if len(group[group['Protocol']=='HTTP/1.0']) > 0 else False
+        # Protocol 1.0 사용 여부
+        use_1_0 = True if len(group[group['Protocol'] == 'HTTP/1.0']) > 0 else False
         df.loc[entity, 'protocol_1_0'] = use_1_0
 
         # 정상(200, 301, 302) Status 비율
-        status_major_percent = len(group[group['Status'].isin(['200', '301', '302'])]) / float(len(group))
+        status_major_percent = len(group[group['Status'].isin(['200', '301', '302'])]) / float(len(group)) if len(group) > 0 else 0
         df.loc[entity, 'status_major'] = status_major_percent
 
         # 404 Status 비율
-        status_404_percent = len(group[group['Status'].isin(['404'])]) / float(len(group))
+        status_404_percent = len(group[group['Status'].isin(['404'])]) / float(len(group)) if len(group) > 0 else 0
         df.loc[entity, 'status_404'] = status_404_percent
 
-        # 499 Status 포함여부
-        has_499 = True if len(group[group['Status']=='499']) > 0 else False
+        # 499 Status 포함 여부
+        has_499 = True if len(group[group['Status'] == '499']) > 0 else False
         df.loc[entity, 'status_499'] = has_499
 
         # Status 종류 (Scanner 등은 Status가 다양할 수 있음)
@@ -76,21 +75,17 @@ def feature_extract(df):
 
         # 같은 Path 반복적 접근 여부
         top1_path_cnt = group['Path'].value_counts()[0]
-        df.loc[entity, 'path_same'] = float(top1_path_cnt / len(group))
+        df.loc[entity, 'path_same'] = float(top1_path_cnt / len(group)) if len(group) > 0 else 0
 
         # /xmlrpc.php 접근 비율
-        path_xmlrpc = len(group[group['Path'].str.contains('xmlrpc.php')==True]) / float(len(group))
+        path_xmlrpc = len(group[group['Path'].str.contains('xmlrpc.php') == True]) / float(len(group)) if len(group) > 0 else 0
         df.loc[entity, 'path_xmlrpc'] = path_xmlrpc
 
         # User agent를 바꾸는 경우
         df.loc[entity, 'ua_cnt'] = group['UA'].nunique()
 
         # Payload가 존재하는 경우
-        has_payload = []
-        if len(group[group['Payload'] != '-']) > 0:
-            has_payload.append(True)
-        else:
-            has_payload.append(False)
+        has_payload = True if len(group[group['Payload'] != '-']) > 0 else False
         df.loc[entity, 'has_payload'] = has_payload
 
         # Bytes의 평균 / 분산
@@ -102,7 +97,7 @@ def feature_extract(df):
 
 # Streamlit 앱
 def main():
-    st.title('로그 데이터 처리 및 이상탐지 앱')
+    st.title('로그 데이터 처리 및 이상 탐지 앱')
 
     # 파일 업로드
     uploaded_file = st.file_uploader("CSV 파일 선택", type="csv")
@@ -114,25 +109,24 @@ def main():
         # 로그 데이터 처리
         processed_log_df = process_log_data(log_df)
 
-        # 전처리된 데이터에 피처 엔지니어링 적용
+        # 처리된 데이터 표시
+        st.write("처리된 로그 데이터:")
+        st.write(processed_log_df)
+
+        # Feature Engineering
+        st.write("Feature Engineering 중...")
         processed_log_df = feature_extract(processed_log_df)
 
-        # 이상탐지 모델 학습
-        model = IsolationForest(contamination=0.01)  # contamination은 이상치 비율을 나타냅니다.
-        model.fit(processed_log_df[['method_cnt', 'method_post', 'status_major', 'status_404', 'bytes_avg', 'bytes_std']])
+        # Feature Engineering 결과 표시
+        st.write("Feature Engineering 결과:")
+        st.write(processed_log_df)
 
-        # 이상탐지 결과 예측
-        predictions = model.predict(processed_log_df[['method_cnt', 'method_post', 'status_major', 'status_404', 'bytes_avg', 'bytes_std']])
-        processed_log_df['anomaly'] = (predictions == -1)  # -1은 이상치를 나타냅니다.
+        # 처리된 데이터를 새로운 CSV 파일로 저장
+        processed_file_path = 'processed_file.csv'
+        processed_log_df.to_csv(processed_file_path, index=False)
 
-        # 처리된 데이터 및 이상치 시각화
-        st.write("전처리 및 이상탐지 결과:")
-        st.write(processed_log_df[['Timestamp','Method','Protocol','Status','Referer','Path','Host','UA','Payload','Bytes', 'anomaly']])
-
-        # 이상치에 대한 상세 정보 표시
-        anomaly_details = processed_log_df[processed_log_df['anomaly']]
-        st.write("이상치 상세 정보:")
-        st.write(anomaly_details)
+        # 처리된 파일을 다운로드할 수 있는 링크 제공
+        st.markdown(f"처리된 데이터 다운로드: [처리된 파일]({processed_file_path})")
 
 if __name__ == '__main__':
     main()
