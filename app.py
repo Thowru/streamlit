@@ -7,7 +7,7 @@ def process_log_data(log_df):
     log_df['Timestamp'] = log_df['message'].str.extract(r'(\d+/\w+/\d+\d+:\d+:\d+:\d+)')
     log_df['Timestamp'] = pd.to_datetime(log_df['Timestamp'], format='%d/%b/%Y:%H:%M:%S').dt.strftime('%Y-%m-%d %H:%M:%S')
     log_df['Host'] = log_df['message'].str.extract(r'(\d+.\d+.\d+.\d+)')
-    log_df[['Method', 'Path']] = log_df['message'].str.extract(r'(HEAD|PUT|DELETE|CONNECT|OPTIONS|TRACE|PATCH|POST|GET)\s+(.)\s+HTTP')
+    log_df[['Method', 'Path']] = log_df['message'].str.extract(r'(HEAD|PUT|DELETE|CONNECT|OPTIONS|TRACE|PATCH|POST|GET)\s+([^\s]+)\s+HTTP')
     log_df['Protocol'] = log_df['message'].str.extract(r'(HTTP/\d+.\d+)')
     log_df['Status'] = log_df['message'].str.extract(r'(\d+)\s+\d+')
     log_df['Bytes'] = log_df['message'].str.extract(r'\d+\s+(\d+)')
@@ -42,7 +42,6 @@ def main():
 
         # 처리된 파일을 다운로드할 수 있는 링크 제공
         st.markdown(f"처리된 데이터 다운로드: [처리된 파일]({processed_file_path})")
-
 
 if __name__ == '__main__':
     main()
