@@ -13,7 +13,7 @@ def process_log_data(log_df):
     log_df['Bytes'] = log_df['message'].str.extract(r'\d+\s+(\d+)')
     log_df['UA'] = log_df['message'].str.extract(r'(Mozilla.+537.36)')
     selected_log_df = log_df[log_df['Method'].isna() & log_df['Protocol'].isna()]
-    log_df['Payload'] = selected_log_df['message'].str.extract(r']{1}\s+"(.)" \d+')
+    log_df['Payload'] = selected_log_df['message'].str.extract(r']{1}\s+([^\s]+)\d+')
     log_df['Referer'] = log_df['message'].str.extract(r'."(http[s]?://.?)"')
     log_df.drop(columns='message', inplace=True)
     log_df = log_df[['Timestamp','Method','Protocol','Status','Referer','Path','Host','UA','Payload','Bytes']]
